@@ -545,6 +545,22 @@ pub fn orm_table_gen(sql_dialect SQLDialect, table Table, q string, defaults boo
 					return error("index attribute needs to be in the format [index: 'f1, f2, f3']")
 				}
 			}
+			'unique_key' {
+				if attr.arg != '' && attr.kind == .string {
+					unique_key_strings := attr.arg.split(',')
+					for i in unique_key_strings {
+						x := i.trim_space()
+						if x !in valid_sql_field_names {
+							return error("table `${table.name}` has no field's name: `${x}`")
+						}
+						if x.len > 0 {
+							unique_fields << x
+						}
+					}
+				} else {
+					return error("unique_key attribute needs to be in the format [unique_key: 'f1, f2, f3']")
+				}
+			}
 			else {}
 		}
 	}
@@ -664,16 +680,7 @@ pub fn orm_table_gen(sql_dialect SQLDialect, table Table, q string, defaults boo
 			stmt += ' NOT NULL'
 		}
 		if is_unique {
-			mut f := 'UNIQUE(${q}${field_name}${q}'
-			if col_typ == 'TEXT' && def_unique_len > 0 {
-				if unique_len > 0 {
-					f += '(${unique_len})'
-				} else {
-					f += '(${def_unique_len})'
-				}
-			}
-			f += ')'
-			unique_fields << f
+			unique_fields << field_name
 		}
 		if references_table != '' {
 			stmt += ' REFERENCES ${q}${references_table}${q}(${q}${references_field}${q})'
@@ -694,8 +701,14 @@ pub fn orm_table_gen(sql_dialect SQLDialect, table Table, q string, defaults boo
 	if primary != '' {
 		fs << 'PRIMARY KEY(${q}${primary}${q})'
 	}
-
-	fs << unique_fields
+	
+	if unique_fields.len > 0 {
+		mut tmp := []string{}
+		for f in unique_fields {
+			tmp << '${q}${f}${q}'
+		}
+		fs << 'UNIQUE(${tmp.join(', ')})'
+	}
 	unique_fields.clear() // ownership transferred to fs to avoid double-free under -autofree
 	str += fs.join(', ')
 	if index_fields.len > 0 && sql_dialect == .mysql {
