@@ -701,7 +701,7 @@ pub fn orm_table_gen(sql_dialect SQLDialect, table Table, q string, defaults boo
 	if primary != '' {
 		fs << 'PRIMARY KEY(${q}${primary}${q})'
 	}
-	
+
 	if unique_fields.len > 0 {
 		mut tmp := []string{}
 		for f in unique_fields {
